@@ -1,0 +1,32 @@
+{
+  "manifest_version": "0.3",
+  "name": "xero-mcp",
+  "display_name": "Xero MCP Server",
+  "version": "0.0.0",
+  "description": "MCP server for Xero Accounting - access contacts, invoices, payments, accounts, and reports through AI assistants",
+  "long_description": "Provides AI assistants with structured access to your Xero accounting data. Manage contacts, invoices, payments, accounts, and financial reports through the Model Context Protocol.",
+  "author": { "name": "Wyre Technology", "url": "https://github.com/wyre-technology" },
+  "repository": { "type": "git", "url": "https://github.com/wyre-technology/xero-mcp" },
+  "homepage": "https://github.com/wyre-technology/xero-mcp",
+  "license": "Apache-2.0",
+  "keywords": ["xero", "accounting", "msp", "invoices", "contacts", "payments"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "XERO_ACCESS_TOKEN": "${user_config.xero_access_token}",
+        "XERO_TENANT_ID": "${user_config.xero_tenant_id}",
+        "MCP_TRANSPORT": "stdio"
+      }
+    }
+  },
+  "tools_generated": true,
+  "user_config": {
+    "xero_access_token": { "type": "string", "title": "Xero Access Token", "description": "Your Xero OAuth2 access token", "sensitive": true, "required": true },
+    "xero_tenant_id": { "type": "string", "title": "Xero Tenant ID", "description": "Your Xero organisation tenant ID", "sensitive": false, "required": true }
+  },
+  "compatibility": { "platforms": ["darwin", "win32", "linux"], "runtimes": { "node": ">=18.0.0" }, "claude_desktop": ">=0.10.0" }
+}
