@@ -2,6 +2,12 @@
 
 Model Context Protocol (MCP) server for the [Xero Accounting API](https://developer.xero.com/documentation/api/accounting/overview). Enables Claude and other MCP-compatible clients to manage Xero contacts, invoices, payments, accounts, and reports.
 
+## One-Click Deployment
+
+[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/wyre-technology/xero-mcp/tree/main)
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wyre-technology/xero-mcp)
+
 ## Quick Start
 
 ### Prerequisites
