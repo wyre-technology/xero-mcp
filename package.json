@@ -1,6 +1,6 @@
 {
   "name": "@wyre-technology/xero-mcp",
-  "version": "0.0.0-semantically-released",
+  "version": "1.0.1",
   "description": "Xero MCP server for Claude",
   "type": "module",
   "main": "dist/index.js",
