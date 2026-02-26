@@ -5,12 +5,17 @@ FROM node:22-alpine AS builder
 ARG VERSION="unknown"
 ARG COMMIT_SHA="unknown"
 ARG BUILD_DATE="unknown"
+ARG GITHUB_TOKEN
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+
+# Configure npm to authenticate with GitHub Packages
+RUN echo "@wyre-technology:registry=https://npm.pkg.github.com" >> .npmrc && \
+    echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc
 
 # Install dependencies (--ignore-scripts prevents 'prepare' from running before source is copied)
 RUN npm ci --ignore-scripts
