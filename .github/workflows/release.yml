@@ -97,6 +97,8 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:v${{ steps.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Get released version
@@ -118,6 +120,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BUNDLE_NAME=$(node -p "require('./package.json').name.replace(/^@.*\\//, '')")
+          echo "@wyre-technology:registry=https://npm.pkg.github.com" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+          npm ci
           npm install -g @anthropic-ai/mcpb
           npm run pack:mcpb
           gh release upload "v${{ steps.release-version.outputs.version }}" "${BUNDLE_NAME}.mcpb" \
