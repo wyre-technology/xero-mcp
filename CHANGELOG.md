@@ -1,3 +1,11 @@
+## [1.0.3](https://github.com/wyre-technology/xero-mcp/compare/v1.0.2...v1.0.3) (2026-03-02)
+
+
+### Bug Fixes
+
+* **ci:** fix broken YAML in Discord notification step ([1ad5af2](https://github.com/wyre-technology/xero-mcp/commit/1ad5af25973b935103c344a4a54d50c36ec8dc81))
+* **ci:** move Discord notification into release workflow ([71759ce](https://github.com/wyre-technology/xero-mcp/commit/71759ce259ac5705b6dd121f7fc4ce842a5c8ae6))
+
 ## [1.0.2](https://github.com/wyre-technology/xero-mcp/compare/v1.0.1...v1.0.2) (2026-02-26)
 
 
