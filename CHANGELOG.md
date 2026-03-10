@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/wyre-technology/xero-mcp/compare/v1.0.3...v1.1.0) (2026-03-10)
+
+
+### Features
+
+* **elicitation:** add MCP elicitation support with graceful fallback ([#1](https://github.com/wyre-technology/xero-mcp/issues/1)) ([168ab60](https://github.com/wyre-technology/xero-mcp/commit/168ab60d3f2cf95e2fd8e1f485f88221bd225bf8))
+
 ## [1.0.3](https://github.com/wyre-technology/xero-mcp/compare/v1.0.2...v1.0.3) (2026-03-02)
 
 
