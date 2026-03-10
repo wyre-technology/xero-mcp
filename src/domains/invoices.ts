@@ -4,6 +4,7 @@
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getClient } from "../utils/client.js";
+import { elicitText } from "../utils/elicitation.js";
 
 /**
  * Invoice domain tool definitions
@@ -155,6 +156,27 @@ export async function handleInvoiceTool(
         Status?: string;
         Type?: string;
       };
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+
+      // If no filters provided, ask the user for a date range
+      if (!Status && !Type && page === undefined) {
+        const from = await elicitText(
+          "Would you like to filter invoices by date range? Enter a start date, or leave blank to list all.",
+          "startDate",
+          "Start date (YYYY-MM-DD)"
+        );
+        if (from) {
+          startDate = from;
+          const to = await elicitText(
+            "Enter an end date for the invoice filter.",
+            "endDate",
+            "End date (YYYY-MM-DD)"
+          );
+          if (to) endDate = to;
+        }
+      }
+
       const params: Record<string, string> = {};
       if (page !== undefined) params.page = String(page);
 
@@ -162,6 +184,8 @@ export async function handleInvoiceTool(
       const filters: string[] = [];
       if (Status) filters.push(`Status=="${Status}"`);
       if (Type) filters.push(`Type=="${Type}"`);
+      if (startDate) filters.push(`Date >= DateTime(${startDate.replace(/-/g, ",")})`);
+      if (endDate) filters.push(`Date <= DateTime(${endDate.replace(/-/g, ",")})`);
       if (filters.length > 0) params.where = filters.join(" AND ");
 
       const response = await client.get("Invoices", params);

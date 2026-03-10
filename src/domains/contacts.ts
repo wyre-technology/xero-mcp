@@ -4,6 +4,7 @@
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getClient } from "../utils/client.js";
+import { elicitText } from "../utils/elicitation.js";
 
 /**
  * Contact domain tool definitions
@@ -118,10 +119,23 @@ export async function handleContactTool(
 
   switch (name) {
     case "xero_contacts_list": {
-      const { page, where } = args as {
+      let { page, where } = args as {
         page?: number;
         where?: string;
       };
+
+      // If no filters provided, ask the user for a search term
+      if (!where && page === undefined) {
+        const searchTerm = await elicitText(
+          "Would you like to filter contacts by name? Leave blank to list all.",
+          "searchTerm",
+          "Enter a contact name to search for"
+        );
+        if (searchTerm) {
+          where = `Name.Contains("${searchTerm}")`;
+        }
+      }
+
       const params: Record<string, string> = {};
       if (page !== undefined) params.page = String(page);
       if (where) params.where = where;
