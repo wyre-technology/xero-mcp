@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/wyre-technology/xero-mcp/compare/v1.1.0...v1.1.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* **ci:** grant contents:write to docker job for MCPB upload ([ba68774](https://github.com/wyre-technology/xero-mcp/commit/ba68774184d457dd58d9898adae489c4cdd0d799))
+
 # [1.1.0](https://github.com/wyre-technology/xero-mcp/compare/v1.0.3...v1.1.0) (2026-03-10)
 
 
