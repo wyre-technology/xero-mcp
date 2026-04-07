@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/wyre-technology/xero-mcp/compare/v1.1.1...v1.1.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* **ci:** deploy :latest tag, force revision via env var bump ([e6cf309](https://github.com/wyre-technology/xero-mcp/commit/e6cf309972d8c98a38fa4a1b84139d7164d760be))
+
 ## [1.1.1](https://github.com/wyre-technology/xero-mcp/compare/v1.1.0...v1.1.1) (2026-03-10)
 
 
