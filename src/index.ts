@@ -30,7 +30,7 @@ import { invoiceTools, handleInvoiceTool } from "./domains/invoices.js";
 import { paymentTools, handlePaymentTool } from "./domains/payments.js";
 import { accountTools, handleAccountTool } from "./domains/accounts.js";
 import { reportTools, handleReportTool } from "./domains/reports.js";
-import { resetClient } from "./utils/client.js";
+import { credentialStore } from "./utils/client.js";
 import { setServerRef } from "./utils/server-ref.js";
 
 /**
@@ -321,10 +321,13 @@ async function startHttpTransport(): Promise<void> {
             return;
           }
 
-          // Reset client so next getClient() picks up the new credentials
-          resetClient();
-          process.env.XERO_ACCESS_TOKEN = accessToken;
-          process.env.XERO_TENANT_ID = tenantId;
+          // Run the MCP handler within an AsyncLocalStorage context so that
+          // getClient() picks up these credentials without mutating process.env.
+          // This prevents concurrent requests from overwriting each other's creds.
+          credentialStore.run({ accessToken, tenantId }, () => {
+            transport.handleRequest(req, res);
+          });
+          return;
         }
 
         transport.handleRequest(req, res);

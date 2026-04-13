@@ -10,6 +10,8 @@
  * Rate Limit: 60 requests/minute, 5000/day
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 const XERO_API_BASE = "https://api.xero.com/api.xro/2.0";
 const XERO_PAGE_SIZE = 100;
 
@@ -144,18 +146,38 @@ class XeroClient {
 }
 
 /**
- * Singleton client instance (lazy-loaded)
+ * Per-request credential overrides via AsyncLocalStorage.
+ * In gateway mode the HTTP handler sets this so that concurrent requests
+ * never share or overwrite each other's credentials through process.env.
+ */
+export interface XeroCredentials {
+  accessToken: string;
+  tenantId: string;
+}
+
+export const credentialStore = new AsyncLocalStorage<XeroCredentials>();
+
+/**
+ * Singleton client instance (lazy-loaded, used only in stdio/env mode)
  */
 let _client: XeroClient | null = null;
 
 /**
  * Get or create the Xero client instance.
- * Uses lazy loading to defer instantiation until first use.
+ * In gateway mode (AsyncLocalStorage has credentials), creates a fresh client per request.
+ * In stdio/env mode, uses a lazy-loaded singleton.
  *
- * @throws Error if XERO_ACCESS_TOKEN or XERO_TENANT_ID environment variables are not set
+ * @throws Error if credentials are not available
  * @returns The XeroClient instance
  */
 export function getClient(): XeroClient {
+  // Prefer per-request credentials from AsyncLocalStorage (gateway mode)
+  const override = credentialStore.getStore();
+  if (override) {
+    return new XeroClient({ accessToken: override.accessToken, tenantId: override.tenantId });
+  }
+
+  // Stdio / env mode: use singleton
   if (!_client) {
     const accessToken = process.env.XERO_ACCESS_TOKEN;
     const tenantId = process.env.XERO_TENANT_ID;
@@ -174,7 +196,7 @@ export function getClient(): XeroClient {
 
 /**
  * Reset the client instance.
- * Used in gateway mode to pick up new credentials from headers.
+ * Used in tests or when env-mode credentials change.
  */
 export function resetClient(): void {
   _client = null;
