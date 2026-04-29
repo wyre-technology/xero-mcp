@@ -37,6 +37,9 @@ jobs:
     permissions:
       contents: write
       issues: write
+    outputs:
+      version: ${{ steps.release-version.outputs.version }}
+      released: ${{ steps.release-version.outputs.released }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,7 +85,7 @@ jobs:
   docker:
     name: Docker
     runs-on: ubuntu-latest
-    needs: test
+    needs: [release]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -107,9 +110,21 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
-      - name: Get version
+      - name: Resolve release version
         id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        # Source of truth is the release job's computed version (semantic-release's
+        # in-memory bump). Reading package.json here would be wrong because
+        # @semantic-release/git's push back to main can be silently dropped by
+        # branch protection. We use the release output so docker tags match
+        # the GitHub release/git tag.
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "ERROR: needs.release.outputs.version is empty" >&2
+            exit 1
+          fi
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -190,3 +205,48 @@ jobs:
             --resource-group mcp-gateway-prod \
             --image "$IMAGE" \
             --set-env-vars "IMAGE_VERSION=sha-${SHORT_SHA}-${GITHUB_RUN_ID}"
+
+  mcp-registry:
+    name: Publish to MCP Registry
+    runs-on: ubuntu-latest
+    needs: [release, docker]
+    if: needs.release.outputs.released == 'true'
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+    steps:
+      - name: Checkout (post-release commit)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+
+      - name: Stamp version into server.json
+        run: |
+          jq --arg v "$VERSION" \
+            '.version = $v
+             | .packages[0].identifier = "ghcr.io/wyre-technology/xero-mcp:v" + $v' \
+            server.json > server.json.tmp
+          mv server.json.tmp server.json
+          cat server.json
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
+      - name: Verify registry listing
+        run: |
+          sleep 5
+          curl -sf "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.wyre-technology/xero-mcp" \
+            | jq '.servers[] | {name, version}'
