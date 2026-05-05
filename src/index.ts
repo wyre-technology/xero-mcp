@@ -3,8 +3,10 @@
  * Xero MCP Server
  *
  * This MCP server provides tools for interacting with the Xero Accounting API.
- * It implements a decision tree architecture where tools are dynamically
- * loaded based on the selected domain.
+ * All tools are listed upfront so they work with every MCP client, including
+ * remote connectors (claude.ai, mcp-remote) that do not support dynamic
+ * tool-list changes. A helper `xero_navigate` tool provides domain
+ * discovery and guidance.
  *
  * Supports both stdio and HTTP (StreamableHTTP) transports.
  * Authentication:
@@ -66,17 +68,6 @@ const domainDescriptions: Record<Domain, string> = {
 };
 
 /**
- * Server state management
- */
-interface ServerState {
-  currentDomain: Domain | null;
-}
-
-const state: ServerState = {
-  currentDomain: null,
-};
-
-/**
  * Get tools for a specific domain
  */
 function getDomainTools(domain: Domain): Tool[] {
@@ -95,12 +86,41 @@ function getDomainTools(domain: Domain): Tool[] {
 }
 
 /**
- * Navigation tool - entry point for decision tree
+ * All domain tools, collected once at startup
+ */
+let allDomainTools: Tool[] | null = null;
+
+/**
+ * Load all domain tools (lazy-loaded on first access)
+ */
+function getAllDomainTools(): Tool[] {
+  if (allDomainTools !== null) {
+    return allDomainTools;
+  }
+
+  const domains: Domain[] = ["contacts", "invoices", "payments", "accounts", "reports"];
+  const tools: Tool[] = [];
+
+  for (const domain of domains) {
+    tools.push(...getDomainTools(domain));
+  }
+
+  allDomainTools = tools;
+  return tools;
+}
+
+/**
+ * Navigation / discovery tool - helps the LLM find the right tools
+ *
+ * This is a stateless helper that describes available tools for a domain.
+ * All domain tools are always listed in tools/list regardless of navigation
+ * state, because many MCP clients (claude.ai connectors, mcp-remote) only
+ * fetch the tool list once and do not support notifications/tools/list_changed.
  */
 const navigateTool: Tool = {
   name: "xero_navigate",
   description:
-    "Navigate to a specific domain in Xero. Call this first to select which area you want to work with. After navigation, domain-specific tools will be available.",
+    "Discover available Xero tools by domain. Returns tool names and descriptions for the selected domain. All tools are callable at any time — this is a help/discovery aid, not a prerequisite.",
   inputSchema: {
     type: "object",
     properties: {
@@ -113,7 +133,7 @@ const navigateTool: Tool = {
           "accounts",
           "reports",
         ],
-        description: `The domain to navigate to:
+        description: `The domain to explore:
 - contacts: ${domainDescriptions.contacts}
 - invoices: ${domainDescriptions.invoices}
 - payments: ${domainDescriptions.payments}
@@ -126,12 +146,11 @@ const navigateTool: Tool = {
 };
 
 /**
- * Back navigation tool - return to domain selection
+ * Status tool - shows credentials status and available domains
  */
-const backTool: Tool = {
-  name: "xero_back",
-  description:
-    "Return to domain selection. Use this to switch to a different area of Xero.",
+const statusTool: Tool = {
+  name: "xero_status",
+  description: "Show credentials status and available domains",
   inputSchema: {
     type: "object",
     properties: {},
@@ -139,139 +158,157 @@ const backTool: Tool = {
 };
 
 /**
- * Create the MCP server
+ * Back navigation tool - for compatibility (no-op)
  */
-const server = new Server(
-  {
-    name: "xero-mcp",
-    version: "1.0.0",
+const backTool: Tool = {
+  name: "xero_back",
+  description:
+    "Return to domain selection (no-op in flattened mode). All tools are always available.",
+  inputSchema: {
+    type: "object",
+    properties: {},
   },
-  {
-    capabilities: {
-      tools: {},
+};
+
+/**
+ * Create a fresh MCP server instance with all handlers registered.
+ * Called once for stdio, or per-request for HTTP transport.
+ */
+function createMcpServer(): Server {
+  const server = new Server(
+    {
+      name: "xero-mcp",
+      version: "1.0.0",
     },
-  }
-);
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
 
-setServerRef(server);
+  setServerRef(server);
 
-/**
- * Handle ListTools requests - returns tools based on current state
- */
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools: Tool[] = [];
+  /**
+   * Handle ListTools requests - always returns ALL tools
+   */
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const domainTools = getAllDomainTools();
+    return { tools: [navigateTool, statusTool, backTool, ...domainTools] };
+  });
 
-  if (state.currentDomain === null) {
-    // At root - show navigation tool only
-    tools.push(navigateTool);
-  } else {
-    // In a domain - show domain tools plus back navigation
-    tools.push(backTool);
-    tools.push(...getDomainTools(state.currentDomain));
-  }
+  /**
+   * Handle CallTool requests
+   */
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
 
-  return { tools };
-});
+    try {
+      // Handle navigation / discovery helper
+      if (name === "xero_navigate") {
+        const { domain } = args as { domain: Domain };
 
-/**
- * Handle CallTool requests
- */
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+        const domainTools = getDomainTools(domain);
+        const toolSummary = domainTools
+          .map((t) => `- ${t.name}: ${t.description}`)
+          .join("\n");
 
-  try {
-    // Handle navigation
-    if (name === "xero_navigate") {
-      const { domain } = args as { domain: Domain };
-      state.currentDomain = domain;
+        return {
+          content: [
+            {
+              type: "text",
+              text: `${domainDescriptions[domain]}\n\nAvailable tools:\n${toolSummary}\n\nYou can call any of these tools directly.`,
+            },
+          ],
+        };
+      }
 
-      const domainTools = getDomainTools(domain);
-      const toolNames = domainTools.map((t) => t.name).join(", ");
+      if (name === "xero_status") {
+        const credStatus = process.env.XERO_ACCESS_TOKEN
+          ? `Configured (tenant: ${process.env.XERO_TENANT_ID || "env-based"})`
+          : "NOT CONFIGURED - Please set environment variables";
 
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Xero MCP Server Status\n\nCredentials: ${credStatus}\nAvailable domains: contacts, invoices, payments, accounts, reports\n\nAll tools are available at all times. Use xero_navigate to discover tools by domain.`,
+            },
+          ],
+        };
+      }
+
+      if (name === "xero_back") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "All tools are always available in flattened mode. Use xero_navigate to discover tools by domain: contacts, invoices, payments, accounts, reports",
+            },
+          ],
+        };
+      }
+
+      // Route to appropriate domain handler
+      const toolArgs = (args ?? {}) as Record<string, unknown>;
+
+      if (name.startsWith("xero_contacts_")) {
+        return await handleContactTool(name, toolArgs);
+      }
+      if (name.startsWith("xero_invoices_")) {
+        return await handleInvoiceTool(name, toolArgs);
+      }
+      if (name.startsWith("xero_payments_")) {
+        return await handlePaymentTool(name, toolArgs);
+      }
+      if (name.startsWith("xero_accounts_")) {
+        return await handleAccountTool(name, toolArgs);
+      }
+      if (name.startsWith("xero_reports_")) {
+        return await handleReportTool(name, toolArgs);
+      }
+
+      // Unknown tool
       return {
         content: [
           {
             type: "text",
-            text: `Navigated to ${domain} domain. Available tools: ${toolNames}`,
+            text: `Unknown tool: ${name}. Use xero_navigate to discover available tools by domain.`,
           },
         ],
+        isError: true,
       };
-    }
-
-    // Handle back navigation
-    if (name === "xero_back") {
-      state.currentDomain = null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       return {
-        content: [
-          {
-            type: "text",
-            text: "Returned to domain selection. Use xero_navigate to select a domain: contacts, invoices, payments, accounts, reports",
-          },
-        ],
+        content: [{ type: "text", text: `Error: ${message}` }],
+        isError: true,
       };
     }
+  });
 
-    // Route to appropriate domain handler
-    const toolArgs = (args ?? {}) as Record<string, unknown>;
-
-    if (name.startsWith("xero_contacts_")) {
-      return await handleContactTool(name, toolArgs);
-    }
-    if (name.startsWith("xero_invoices_")) {
-      return await handleInvoiceTool(name, toolArgs);
-    }
-    if (name.startsWith("xero_payments_")) {
-      return await handlePaymentTool(name, toolArgs);
-    }
-    if (name.startsWith("xero_accounts_")) {
-      return await handleAccountTool(name, toolArgs);
-    }
-    if (name.startsWith("xero_reports_")) {
-      return await handleReportTool(name, toolArgs);
-    }
-
-    // Unknown tool
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Unknown tool: ${name}. Use xero_navigate to select a domain first.`,
-        },
-      ],
-      isError: true,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      content: [{ type: "text", text: `Error: ${message}` }],
-      isError: true,
-    };
-  }
-});
+  return server;
+}
 
 /**
  * Start the server with stdio transport (default)
  */
 async function startStdioTransport(): Promise<void> {
+  const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Xero MCP server running on stdio");
+  console.error("Xero MCP server running on stdio (flattened mode)");
 }
 
 /**
- * Start the server with HTTP Streamable transport
- * In gateway mode, credentials are extracted from request headers on each request
+ * Start the server with HTTP Streamable transport.
+ * Each request gets a fresh Server + Transport (stateless).
  */
 async function startHttpTransport(): Promise<void> {
   const port = parseInt(process.env.MCP_HTTP_PORT || "8080", 10);
   const host = process.env.MCP_HTTP_HOST || "0.0.0.0";
   const authMode = (process.env.AUTH_MODE as AuthMode) || "env";
   const isGatewayMode = authMode === "gateway";
-
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-    enableJsonResponse: true,
-  });
 
   const httpServer = createServer(
     (req: IncomingMessage, res: ServerResponse) => {
@@ -296,7 +333,25 @@ async function startHttpTransport(): Promise<void> {
 
       // MCP endpoint
       if (url.pathname === "/mcp") {
-        // In gateway mode, extract credentials from headers
+        // In gateway mode, extract credentials and bind them to the
+        // request's async context — no process.env mutation.
+        const handleMcp = () => {
+          const server = createMcpServer();
+          const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: () => randomUUID(),
+            enableJsonResponse: true,
+          });
+
+          res.on("close", () => {
+            transport.close();
+            server.close();
+          });
+
+          server.connect(transport).then(() => {
+            transport.handleRequest(req, res);
+          });
+        };
+
         if (isGatewayMode) {
           const accessToken = req.headers["x-xero-access-token"] as
             | string
@@ -306,9 +361,6 @@ async function startHttpTransport(): Promise<void> {
             | undefined;
 
           if (!accessToken || !tenantId) {
-            console.error(
-              "Gateway mode: Missing X-Xero-Access-Token or X-Xero-Tenant-Id header"
-            );
             res.writeHead(401, { "Content-Type": "application/json" });
             res.end(
               JSON.stringify({
@@ -320,17 +372,10 @@ async function startHttpTransport(): Promise<void> {
             );
             return;
           }
-
-          // Run the MCP handler within an AsyncLocalStorage context so that
-          // getClient() picks up these credentials without mutating process.env.
-          // This prevents concurrent requests from overwriting each other's creds.
-          credentialStore.run({ accessToken, tenantId }, () => {
-            transport.handleRequest(req, res);
-          });
-          return;
+          credentialStore.run({ accessToken, tenantId }, handleMcp);
+        } else {
+          handleMcp();
         }
-
-        transport.handleRequest(req, res);
         return;
       }
 
@@ -344,8 +389,6 @@ async function startHttpTransport(): Promise<void> {
       );
     }
   );
-
-  await server.connect(transport);
 
   await new Promise<void>((resolve) => {
     httpServer.listen(port, host, () => {
@@ -368,7 +411,6 @@ async function startHttpTransport(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       httpServer.close((err) => (err ? reject(err) : resolve()));
     });
-    await server.close();
     process.exit(0);
   };
 
