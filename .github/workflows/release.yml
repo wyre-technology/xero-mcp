@@ -66,7 +66,7 @@ jobs:
           fi
 
       - name: Trigger MCP Gateway redeploy
-        if: steps.release-version.outputs.released == 'true'
+        if: needs.release.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GATEWAY_DEPLOY_PAT }}
         run: |
@@ -78,13 +78,15 @@ jobs:
   docker:
     name: Docker
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [release]
+    if: needs.release.outputs.released == 'true'
     permissions:
-      contents: write
+      contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: docker/setup-buildx-action@v3
       - name: Login to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
@@ -134,7 +136,7 @@ jobs:
           fi
 
       - name: Pack and upload MCPB bundle
-        if: steps.release-version.outputs.released == 'true'
+        if: needs.release.outputs.released == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -144,7 +146,7 @@ jobs:
           npm ci
           npm install -g @anthropic-ai/mcpb
           npm run pack:mcpb
-          gh release upload "v${{ steps.release-version.outputs.version }}" "${BUNDLE_NAME}.mcpb" \
+          gh release upload "v${{ needs.release.outputs.version }}" "${BUNDLE_NAME}.mcpb" \
             --repo ${{ github.repository }} --clobber
 
       - name: Discord release notification
