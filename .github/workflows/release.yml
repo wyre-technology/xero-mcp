@@ -29,7 +29,7 @@ jobs:
       version: ${{ steps.release-version.outputs.version }}
       released: ${{ steps.release-version.outputs.released }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -84,7 +84,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main
       - uses: docker/setup-buildx-action@v3
@@ -201,7 +201,7 @@ jobs:
       VERSION: ${{ needs.release.outputs.version }}
     steps:
       - name: Checkout (post-release commit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
 
