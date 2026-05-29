@@ -81,7 +81,7 @@ jobs:
     needs: [release]
     if: needs.release.outputs.released == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +107,9 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
       - name: Get version
         id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+        run: echo "version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
       - name: Build and push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6.19.2
         with:
