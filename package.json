@@ -1,6 +1,9 @@
 {
   "name": "@wyre-technology/xero-mcp",
   "version": "1.1.2",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "description": "Xero MCP server for Claude",
   "type": "module",
   "main": "dist/index.js",

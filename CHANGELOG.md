@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Changed
+
+- Publish the package to the GitHub Packages npm registry (`npm.pkg.github.com`) on release: `@semantic-release/npm` `npmPublish` enabled and `publishConfig.registry` set.
+
+### Documentation
+
+- Clarify the one-click "Deploy to Cloudflare Workers" / "Deploy to DigitalOcean" flow: this server depends only on public npm packages, so the cloud builders install without any registry token. Installing the published package from GitHub Packages does require a GitHub PAT with `read:packages` (`export NODE_AUTH_TOKEN=$(gh auth token)`).
+
 ## [1.1.2](https://github.com/wyre-technology/xero-mcp/compare/v1.1.1...v1.1.2) (2026-04-07)
 
 
