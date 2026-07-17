@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Added
+
+- Interactive invoice card via MCP Apps (SEP-1865): `xero_invoices_get` results render as a rich card in MCP Apps hosts. The card UI ships as a `ui://xero/invoice-card.html` resource (`text/html;profile=mcp-app`) embedded at build time so stdio, Node HTTP, and Cloudflare Workers all serve it identically. Read-only by policy — invoices are financial records, so the card exposes no write actions. Neutral by default, brandable via `window.__BRAND__` injection or `MCP_BRAND_*` env vars.
+
 ### Changed
 
 - Publish the package to the GitHub Packages npm registry (`npm.pkg.github.com`) on release: `@semantic-release/npm` `npmPublish` enabled and `publishConfig.registry` set.

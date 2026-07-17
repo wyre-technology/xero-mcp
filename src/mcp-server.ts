@@ -28,6 +28,7 @@ import { accountTools, handleAccountTool } from "./domains/accounts.js";
 import { reportTools, handleReportTool } from "./domains/reports.js";
 import { credentialStore, type XeroCredentials } from "./utils/client.js";
 import { setServerRef } from "./utils/server-ref.js";
+import { registerResourceHandlers } from "./resources.js";
 
 export type { XeroCredentials };
 export { credentialStore };
@@ -195,11 +196,13 @@ export function createMcpServer(): Server {
     {
       capabilities: {
         tools: {},
+        resources: {},
       },
     },
   );
 
   setServerRef(server);
+  registerResourceHandlers(server);
 
   /**
    * Handle ListTools requests - always returns ALL tools

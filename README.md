@@ -2,6 +2,12 @@
 
 Model Context Protocol (MCP) server for the [Xero Accounting API](https://developer.xero.com/documentation/api/accounting/overview). Enables Claude and other MCP-compatible clients to manage Xero contacts, invoices, payments, accounts, and reports.
 
+## Features
+
+- Contacts, invoices, payments, chart of accounts, and financial reports over stdio, HTTP, or Cloudflare Workers transports
+- Interactive invoice card (MCP Apps, SEP-1865): `xero_invoices_get` renders as a rich, read-only card in MCP Apps hosts — neutral by default, brandable via `window.__BRAND__` injection or `MCP_BRAND_*` env vars
+- Gateway mode for per-request, multi-tenant credentials
+
 ## One-Click Deployment
 
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/wyre-technology/xero-mcp/tree/main)
@@ -75,6 +81,17 @@ When `AUTH_MODE=gateway`, credentials are passed per-request via HTTP headers in
 - `X-Xero-Tenant-Id` — Xero tenant ID
 
 This allows a gateway/proxy to manage multi-tenant credentials.
+
+## Interactive Invoice Card (MCP Apps)
+
+`xero_invoices_get` renders as an interactive card in MCP Apps hosts
+(Claude Desktop/web) showing status, contact, dates, amounts, and line
+items; plain-JSON behavior is unchanged in other hosts. The card is
+read-only — invoices are financial records, so no write actions are
+exposed from it. It is neutral by default and brandable via
+`window.__BRAND__` injection or `MCP_BRAND_*` env vars (`MCP_BRAND_NAME`,
+`MCP_BRAND_LOGO_URL`, `MCP_BRAND_PRIMARY_COLOR`, `MCP_BRAND_ACCENT_COLOR`,
+`MCP_BRAND_BG`, `MCP_BRAND_TEXT`) — no rebuild needed.
 
 ## Available Tools
 
