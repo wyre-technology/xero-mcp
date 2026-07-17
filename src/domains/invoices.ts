@@ -5,6 +5,7 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getClient } from "../utils/client.js";
 import { elicitText } from "../utils/elicitation.js";
+import { buildInvoiceCard, INVOICE_CARD_META } from "../invoice-card.js";
 
 /**
  * Invoice domain tool definitions
@@ -39,6 +40,7 @@ export const invoiceTools: Tool[] = [
     name: "xero_invoices_get",
     description:
       "Get detailed information about a specific invoice by its ID. Returns full invoice details including line items, amounts, and payment status.",
+    _meta: INVOICE_CARD_META,
     inputSchema: {
       type: "object",
       properties: {
@@ -197,8 +199,20 @@ export async function handleInvoiceTool(
     case "xero_invoices_get": {
       const { invoiceId } = args as { invoiceId: string };
       const response = await client.get(`Invoices/${invoiceId}`);
+
+      // MCP Apps: attach the normalized card payload the ui:// invoice card
+      // renders from. Best-effort — a null card just means no UI surface,
+      // and the model-visible JSON is otherwise unchanged.
+      let payload = response;
+      try {
+        const card = buildInvoiceCard(response);
+        if (card) payload = { ...(response as object), _card: card };
+      } catch {
+        // Card building never fails the tool result.
+      }
+
       return {
-        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
       };
     }
 
