@@ -16,7 +16,6 @@
  */
 
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { credentialStore } from "./utils/client.js";
@@ -79,7 +78,7 @@ async function startHttpTransport(): Promise<void> {
         const handleMcp = () => {
           const server = createMcpServer();
           const transport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: () => randomUUID(),
+            sessionIdGenerator: undefined,
             enableJsonResponse: true,
           });
 
