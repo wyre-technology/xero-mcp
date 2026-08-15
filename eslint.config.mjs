@@ -14,10 +14,8 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
     rules: {
-      // Preserved from the prior .eslintrc.cjs warn-baseline (latent lint debt;
-      // goal is warn -> error after the debt is addressed).
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      'prefer-const': 'warn',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'prefer-const': 'error',
     },
   },
 );

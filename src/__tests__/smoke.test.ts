@@ -34,15 +34,17 @@ describe('xero-mcp', () => {
   });
 
   it('should implement flattened navigation pattern', async () => {
-    // Import the main module to test the flattened navigation structure
-    const { Server } = await import('@modelcontextprotocol/sdk/server/index.js');
+    // Import the main module to test the flattened navigation structure.
+    // Bindings are intentionally unused -- this exercises that these modules
+    // still resolve and import cleanly, not their runtime behavior.
+    const { Server: _Server } = await import('@modelcontextprotocol/sdk/server/index.js');
     const {
-      ListToolsRequestSchema,
-      CallToolRequestSchema,
+      ListToolsRequestSchema: _ListToolsRequestSchema,
+      CallToolRequestSchema: _CallToolRequestSchema,
     } = await import('@modelcontextprotocol/sdk/types.js');
 
     // Dynamically import the index module to avoid side effects
-    const indexModule = await import('../index.js');
+    const _indexModule = await import('../index.js');
 
     // Test that navigation helpers exist and work as expected
     expect(true).toBe(true); // Basic assertion that module loads without error

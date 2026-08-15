@@ -119,10 +119,8 @@ export async function handleContactTool(
 
   switch (name) {
     case "xero_contacts_list": {
-      let { page, where } = args as {
-        page?: number;
-        where?: string;
-      };
+      const { page } = args as { page?: number; where?: string };
+      let { where } = args as { page?: number; where?: string };
 
       // If no filters provided, ask the user for a search term
       if (!where && page === undefined) {
